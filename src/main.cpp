@@ -8,31 +8,233 @@ SOCKET server_socket;
 int client_addr_len;
 char buf[BUFFER_SIZE+100];
 SOCKET client_socket;
+const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
+	{"txt",    "text/plain; charset=utf-8"},
+	{"html",   "text/html; charset=utf-8"},
+	{"htm",    "text/html; charset=utf-8"},
+	{"css",    "text/css"},
+	{"js",     "application/javascript"},
+	{"json",   "application/json; charset=utf-8"},
+	{"xml",    "text/xml; charset=utf-8"},
+	{"csv",    "text/csv; charset=utf-8"},
+	{"md",     "text/markdown; charset=utf-8"},
+	{"yaml",   "application/x-yaml"},
+	{"yml",    "application/x-yaml"},
+	{"ini",    "text/plain; charset=utf-8"},
+	{"conf",   "text/plain; charset=utf-8"},
+	{"c",      "text/x-csrc; charset=utf-8"},
+	{"cpp",    "text/x-c++src; charset=utf-8"},
+	{"h",      "text/x-chdr; charset=utf-8"},
+	{"hpp",    "text/x-c++hdr; charset=utf-8"},
+	{"java",   "text/x-java-source; charset=utf-8"},
+	{"py",     "text/x-python; charset=utf-8"},
+	{"php",    "application/x-httpd-php"},
+	{"go",     "text/x-go; charset=utf-8"},
+	{"rs",     "text/x-rust; charset=utf-8"},
+	{"swift",  "text/x-swift; charset=utf-8"},
+	{"kotlin", "text/x-kotlin; charset=utf-8"},
+	{"ts",     "application/typescript"},
+	{"vue",    "application/x-vue"},
+	{"sh",     "application/x-sh"},
+	{"bat",    "text/plain; charset=utf-8"},
+	{"ps1",    "text/plain; charset=utf-8"},
+	{"sql",    "text/x-sql; charset=utf-8"},
+	{"ruby",   "text/x-ruby; charset=utf-8"},
+	{"perl",   "text/x-perl; charset=utf-8"},
+	{"lua",    "text/x-lua; charset=utf-8"},
+	{"dart",   "text/x-dart; charset=utf-8"},
+	{"asm",    "text/x-asm; charset=utf-8"},
+	{"cmake",  "text/x-cmake; charset=utf-8"},
+	{"jpg",    "image/jpeg"},
+	{"jpeg",   "image/jpeg"},
+	{"png",    "image/png"},
+	{"gif",    "image/gif"},
+	{"webp",   "image/webp"},
+	{"svg",    "image/svg+xml"},
+	{"bmp",    "image/bmp"},
+	{"ico",    "image/x-icon"},
+	{"tiff",   "image/tiff"},
+	{"tif",    "image/tiff"},
+	{"heic",   "image/heic"},                  // è‹¹æœHEICå›¾ç‰‡
+	{"psd",    "image/vnd.adobe.photoshop"},   // PSDæ–‡ä»¶
+	{"ai",     "application/postscript"},      // AIçŸ¢é‡å›¾
+	{"eps",    "application/postscript"},      // EPSçŸ¢é‡å›¾
+	{"mp3",    "audio/mpeg"},
+	{"wav",    "audio/wav"},
+	{"ogg",    "audio/ogg"},
+	{"flac",   "audio/flac"},
+	{"aac",    "audio/aac"},
+	{"m4a",    "audio/mp4"},
+	{"wma",    "audio/x-ms-wma"},
+	{"mid",    "audio/midi"},                  // MIDIéŸ³é¢‘
+	{"opus",   "audio/opus"},                  // OPUSéŸ³é¢‘
+	{"mp4",    "video/mp4"},
+	{"avi",    "video/x-msvideo"},
+	{"mov",    "video/quicktime"},
+	{"wmv",    "video/x-ms-wmv"},
+	{"flv",    "video/x-flv"},
+	{"mkv",    "video/x-matroska"},
+	{"webm",   "video/webm"},
+	{"mpeg",   "video/mpeg"},
+	{"mpg",    "video/mpeg"},
+	{"3gp",    "video/3gpp"},
+	{"mts",    "video/mp2t"},
+	{"vob",    "video/x-ms-vob"},
+	{"rmvb",   "application/vnd.rn-realmedia-vbr"},
+	{"pdf",    "application/pdf"},
+	{"doc",    "application/msword"},
+	{"docx",   "application/vnd.openxmlformats-officedocument.wordprocessingml.document"},
+	{"xls",    "application/vnd.ms-excel"},
+	{"xlsx",   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+	{"ppt",    "application/vnd.ms-powerpoint"},
+	{"pptx",   "application/vnd.openxmlformats-officedocument.presentationml.presentation"},
+	{"odt",    "application/vnd.oasis.opendocument.text"},
+	{"ods",    "application/vnd.oasis.opendocument.spreadsheet"},
+	{"odp",    "application/vnd.oasis.opendocument.presentation"},
+	{"rtf",    "application/rtf"},
+	{"pages",  "application/x-iwork-pages-sffpages"},
+	{"numbers","application/x-iwork-numbers-sffnumbers"},
+	{"key",    "application/x-iwork-keynote-sffkey"},
+	{"epub",   "application/epub+zip"},
+	{"mobi",   "application/x-mobipocket-ebook"},
+	{"azw3",   "application/x-mobipocket-ebook"},
+	{"fb2",    "application/x-fictionbook+xml"},
+	{"chm",    "application/x-chm"},
+	{"pdb",    "application/x-palm-database"},
+	{"zip",    "application/zip"},
+	{"rar",    "application/x-rar-compressed"},
+	{"7z",     "application/x-7z-compressed"},
+	{"tar",    "application/x-tar"},
+	{"gz",     "application/gzip"},
+	{"bz2",    "application/x-bzip2"},
+	{"xz",     "application/x-xz"},
+	{"cab",    "application/vnd.ms-cab-compressed"},
+	{"z",      "application/x-compress"},
+	{"lzma",   "application/x-lzma"},
+	{"iso",    "application/x-iso9660-image"},
+	{"msi",    "application/x-msi"},
+	{"apk",    "application/vnd.android.package-archive"},
+	{"deb",    "application/x-deb"},
+	{"rpm",    "application/x-rpm"},
+	{"db",     "application/octet-stream"},
+	{"sqlite", "application/x-sqlite3"},
+	{"dbf",    "application/x-dbf"},
+	{"mdb",    "application/x-msaccess"},
+	{"accdb",  "application/x-msaccess"},
+	{"ttf",    "font/ttf"},
+	{"otf",    "font/otf"},
+	{"woff",   "font/woff"},
+	{"woff2",  "font/woff2"},
+	{"eot",    "application/vnd.ms-fontobject"},
+	{"dwg",    "application/acad"},
+	{"dxf",    "application/dxf"},
+	{"stl",    "application/sla"},
+	{"step",   "application/step"},
+	{"iges",   "application/iges"},
+	{"gpg",    "application/pgp-encrypted"},   // GPGåŠ å¯†æ–‡ä»¶
+	{"p12",    "application/x-pkcs12"},        // PKCS12è¯ä¹¦
+	{"cer",    "application/x-x509-ca-cert"},  // è¯ä¹¦æ–‡ä»¶
+	{"asc",    "text/plain; charset=utf-8"},   // ç­¾åæ–‡ä»¶
+	{"torrent","application/x-bittorrent"},
+	{"log",    "text/plain; charset=utf-8"},
+	{"cert",   "application/x-x509-ca-cert"},
+	{"pem",    "application/x-pem-file"},
+	{"m3u",    "audio/x-mpegurl"},
+	{"m3u8",   "application/x-mpegURL"},
+	{"wv",     "audio/x-wavpack"},
+	{"aiff",   "audio/x-aiff"},
+	{"m4v",    "video/mp4"},
+	{"ics",    "text/calendar; charset=utf-8"},
+	{"vcard",  "text/vcard; charset=utf-8"},
+	{"vcf",    "text/vcard; charset=utf-8"},
+	{"srt",    "text/plain; charset=utf-8"},
+	{"ass",    "text/plain; charset=utf-8"},
+	{"vtt",    "text/vtt; charset=utf-8"},
+	{"xhtml",  "application/xhtml+xml; charset=utf-8"},
+	{"mathml", "application/mathml+xml; charset=utf-8"},
+	{"rdf",    "application/rdf+xml; charset=utf-8"},
+	{"xsd",    "application/xml-schema; charset=utf-8"},
+	{"dtd",    "application/xml-dtd; charset=utf-8"},
+	{"xsl",    "application/xml; charset=utf-8"},
+	{"xslt",   "application/xslt+xml; charset=utf-8"},
+	{"xlf",    "application/x-xliff+xml; charset=utf-8"},
+	{"mbox",   "application/mbox"},
+	{"eml",    "message/rfc822"},
+	{"crt",    "application/x-x509-ca-cert"},
+	{"crl",    "application/pkix-crl"},
+	{"der",    "application/x-x509-ca-cert"},
+	{"p7b",    "application/x-pkcs7-certificates"},
+	{"p7c",    "application/x-pkcs7-mime"},
+	{"p8",     "application/x-pkcs8"},
+	{"sct",    "application/ocsp-request"},
+	{"tsp",    "application/timestamp-response"},
+	{"po",     "text/x-gettext-translation; charset=utf-8"},
+	{"pot",    "text/x-gettext-translation-template; charset=utf-8"},
+	{"mo",     "application/x-gettext-translation"},
+	{"diff",   "text/x-diff; charset=utf-8"},
+	{"patch",  "text/x-diff; charset=utf-8"},
+	{"manifest","text/cache-manifest; charset=utf-8"},
+	{"wasm",   "application/wasm"},
+	{"wgsl",   "text/wgsl; charset=utf-8"},
+	{"glsl",   "text/x-glsl; charset=utf-8"},
+	{"frag",   "text/x-glsl; charset=utf-8"},
+	{"vert",   "text/x-glsl; charset=utf-8"},
+	{"comp",   "text/x-glsl; charset=utf-8"},
+	
+	{"default","application/octet-stream"}
+};
 int IsTcpDataAvailable(SOCKET s, int timeout_ms)
 {
 	fd_set read_fds;
 	struct timeval timeout;
-	// ³õÊ¼»¯fd_set£¬Ö»¹Ø×¢Ä¿±êÌ×½Ó×Ö
+	// åˆå§‹åŒ–fd_setï¼Œåªå…³æ³¨ç›®æ ‡å¥—æ¥å­—
 	FD_ZERO(&read_fds);
 	FD_SET(s, &read_fds);
-	// ÉèÖÃ³¬Ê±Ê±¼ä
+	// è®¾ç½®è¶…æ—¶æ—¶é—´
 	timeout.tv_sec = timeout_ms / 1000;
 	timeout.tv_usec = (timeout_ms % 1000) * 1000;
-	// µ÷ÓÃselect£¬Ö»¼ì²é¶Á×´Ì¬
+	// è°ƒç”¨selectï¼Œåªæ£€æŸ¥è¯»çŠ¶æ€
 	int ret = select(0, &read_fds, NULL, NULL, &timeout);
 	if (ret == SOCKET_ERROR)
 	{
-		// ³ö´í£¬´òÓ¡´íÎóÂë
+		// å‡ºé”™ï¼Œæ‰“å°é”™è¯¯ç 
 		printf("select error: %d\n", WSAGetLastError());
 		return -1;
 	}
-	else if (ret > 0) // ·µ»ØÖµ>0±íÊ¾ÓĞÌ×½Ó×Ö¾ÍĞ÷£¬¼ì²éÄ¿±êÌ×½Ó×ÖÊÇ·ñÔÚ¾ÍĞ÷¼¯ºÏÖĞ
+	else if (ret > 0) // è¿”å›å€¼>0è¡¨ç¤ºæœ‰å¥—æ¥å­—å°±ç»ªï¼Œæ£€æŸ¥ç›®æ ‡å¥—æ¥å­—æ˜¯å¦åœ¨å°±ç»ªé›†åˆä¸­
 		if (FD_ISSET(s, &read_fds))
-			return 1; // ÓĞÊı¾İ¿É¶Á
-	// ³¬Ê±£¬ÎŞÊı¾İ¿É¶Á
+			return 1; // æœ‰æ•°æ®å¯è¯»
+	// è¶…æ—¶ï¼Œæ— æ•°æ®å¯è¯»
 	return 0;
 }
-
+bool canReadFile(string s)
+{
+	ifstream fin(s);
+	if(fin.is_open())
+	{
+		fin.close();
+		return 1;
+	}
+	return 0;
+}
+string getFileExtension(string path)
+{
+	int pos=path.find_last_of('.');
+	if(pos==string::npos)
+		return "";
+	string res="";
+	for(int i=pos+1;i<path.size();i++)
+		res+=tolower(path[i]);
+	return res;
+}
+string getContentTypeByExtension(string filePath)
+{
+	string ext=getFileExtension(filePath);
+	auto it=EXT_TO_CONTENT_TYPE.find(ext);
+	if (it!=EXT_TO_CONTENT_TYPE.end())
+		return it->second;
+	return EXT_TO_CONTENT_TYPE.at("default");
+}
 int main()
 {
 	WORD winsock_version = MAKEWORD(2,2);
@@ -88,33 +290,37 @@ int main()
 				continue;
 			}
 			for(int i=startPos+4;i<strlen(buf)&&buf[i]!=' ';i++) childLabel+=buf[i];
-			if(childLabel=="/favicon.ico")
-			{
-				string html;
-				ifstream fin("favicon.png",ios::binary);
-				char c;
-				while(fin.get(c)) html+=c;
-				fin.close();
-				string response="HTTP/1.1 200 OK\r\nContent-Type: image/apng; charset=UTF-8\r\nContent-Length: "+to_string(html.size())+"\r\n\r\n"+html; 
-				send(client_socket,response.c_str(),response.size(),0);
-				closesocket(client_socket);
-				continue;
-			}
 		}
-		//¼ÓÔØÍøÒ³ÁĞ±í
-		string fileName;
 		bool flag=0;
-		ifstream lists("list.txt");
-		string child,type;
-		while(lists>>child>>type>>fileName)
+		string fileName,type;
+		//è‡ªåŠ¨æŸ¥æ‰¾
+		if(canReadFile("webpage"+childLabel))
 		{
-			if(child==childLabel)
-			{
-				flag=1;
-				break;
-			}
+			flag=1;
+			fileName="webpage"+childLabel;
+			type=getContentTypeByExtension(childLabel);
 		}
-		lists.close();
+		else if(canReadFile("webpage"+childLabel+".html"))
+		{
+			flag=1;
+			fileName="webpage"+childLabel+".html";
+			type="text/html; charset=utf-8";
+		}
+		else
+		{
+			//åŠ è½½ç½‘é¡µåˆ—è¡¨
+			ifstream lists("list.txt");
+			string child;
+			while(lists>>child>>type>>fileName)
+			{
+				if(child==childLabel)
+				{
+					flag=1;
+					break;
+				}
+			}
+			lists.close();
+		}
 		if(!flag)
 		{
 			printf("ERROR:Undefined child:%s\n",childLabel.c_str());
@@ -122,13 +328,13 @@ int main()
 			closesocket(client_socket);
 			continue;
 		}
-		//¼ÓÔØHTMLÔ´Âë 
+		//åŠ è½½HTMLæºç  
 		string html;
 		ifstream fin(fileName);
 		char c;
 		while(fin.get(c)) html+=c;
 		fin.close();
-		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"; charset=UTF-8\r\nContent-Length: "+to_string(html.size())+"\r\n\r\n"+html; 
+		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"\r\nContent-Length: "+to_string(html.size())+"\r\n\r\n"+html; 
 		send(client_socket,response.c_str(),response.size(),0);
 		Sleep(100);
 		closesocket(client_socket);
