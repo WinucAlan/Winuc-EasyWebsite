@@ -13,7 +13,7 @@
 ## 文件说明
 `webpage`：自动查找区  
 `main.cpp`：源文件  
-`list.txt`：页面列表
+`list.txt`：页面列表  
 `exe_process.txt`：外部exe处理列表
 
 ## 使用说明
