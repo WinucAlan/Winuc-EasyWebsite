@@ -268,6 +268,7 @@ int main()
 	printf("Wait for connecting...\n");
 	while(1)
 	{
+		memset(buf,0,sizeof(buf));
 		client_socket = accept(server_socket, (SOCKADDR*)&client_addr, &client_addr_len);
 		printf("[info]connect to new client: IP=%s\n" , inet_ntoa(client_addr.sin_addr));
 		if (client_socket == INVALID_SOCKET)
@@ -278,10 +279,14 @@ int main()
 		string childLabel;
 		if(IsTcpDataAvailable(client_socket,1000))
 		{
-			memset(buf,0,sizeof(buf));
-			recv(client_socket,buf,BUFFER_SIZE,0);
-			printf("%s\n",buf);
-			int startPos=string(buf).find("GET");
+			int ret=recv(client_socket,buf,BUFFER_SIZE,0);
+			int startPos=string::npos;
+			if(ret>0)
+			{
+				buf[ret]=0;
+				printf("%s\n",buf);
+				startPos=string(buf).find("GET");
+			}
 			if(startPos==string::npos)
 			{
 				printf("ERROR:Undefined request\n");
@@ -321,6 +326,41 @@ int main()
 			}
 			lists.close();
 		}
+		if(!flag&&strlen(buf)>0)
+		{
+			//继续查找（可执行文件处理列表）
+			ifstream exe_process("exe_process.txt");
+			string child,exe_path;
+			while(exe_process>>child>>exe_path)
+			{
+				if(child==childLabel)
+				{
+					flag=1;
+					break;
+				}
+			}
+			ofstream fout("temp.txt");
+			fout<<buf;
+			fout.close();
+			system((exe_path+' '+filesystem::absolute("temp.txt").string()).c_str());
+			ifstream exe_result("temp.txt",ios::binary);
+			string response;
+			char c;
+			while(exe_result.get(c))
+			{
+				response+=c;
+				if(response.size()>BUFFER_SIZE)
+				{
+					send(client_socket,response.c_str(),response.size(),0);
+					response.clear();
+				}
+			}
+			exe_result.close();
+			if(!response.empty())
+				send(client_socket,response.c_str(),response.size(),0);
+			closesocket(client_socket);
+			continue;
+		}
 		if(!flag)
 		{
 			printf("ERROR:Undefined child:%s\n",childLabel.c_str());
@@ -344,7 +384,6 @@ int main()
 		fin.close();
 		if(!response.empty())
 			send(client_socket,response.c_str(),response.size(),0);
-//		Sleep(100);
 		closesocket(client_socket);
 	}
 	closesocket(server_socket);
