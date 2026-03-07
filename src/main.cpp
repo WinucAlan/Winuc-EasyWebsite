@@ -329,14 +329,22 @@ int main()
 			continue;
 		}
 		//加载HTML源码 
-		string html;
-		ifstream fin(fileName);
+		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"\r\nContent-Length: "+to_string(filesystem::file_size(fileName))+"\r\n\r\n"; 
+		ifstream fin(fileName,ios::binary);
 		char c;
-		while(fin.get(c)) html+=c;
+		while(fin.get(c))
+		{
+			response+=c;
+			if(response.size()>BUFFER_SIZE)
+			{
+				send(client_socket,response.c_str(),response.size(),0);
+				response.clear();
+			}
+		}
 		fin.close();
-		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"\r\nContent-Length: "+to_string(html.size())+"\r\n\r\n"+html; 
-		send(client_socket,response.c_str(),response.size(),0);
-		Sleep(100);
+		if(!response.empty())
+			send(client_socket,response.c_str(),response.size(),0);
+//		Sleep(100);
 		closesocket(client_socket);
 	}
 	closesocket(server_socket);
