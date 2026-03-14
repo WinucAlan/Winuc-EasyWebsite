@@ -330,36 +330,44 @@ int main()
 		{
 			//继续查找（可执行文件处理列表）
 			ifstream exe_process("exe_process.txt");
+			char type;
 			string child,exe_path;
-			while(exe_process>>child>>exe_path)
+			while(exe_process>>type>>child>>exe_path)
 			{
-				if(child==childLabel)
+				if((type=='A'&&child==childLabel)||(type=='P'&&child==childLabel.substr(0,child.size())))
 				{
 					flag=1;
 					break;
 				}
 			}
-			ofstream fout("temp.txt");
-			fout<<buf;
-			fout.close();
-			system((exe_path+' '+filesystem::absolute("temp.txt").string()).c_str());
-			ifstream exe_result("temp.txt",ios::binary);
-			string response;
-			char c;
-			while(exe_result.get(c))
+			if(flag)
 			{
-				response+=c;
-				if(response.size()>BUFFER_SIZE)
+//				exe_path='\"'+exe_path+'\"';
+				ofstream fout("temp.txt");
+				fout<<buf;
+				fout.close();
+				string tempFilePath=filesystem::absolute("temp.txt").string();
+				if(tempFilePath[0]!='\"') tempFilePath='\"'+tempFilePath+'\"';
+//				cout<<"[debug]command: "<<(exe_path+' '+inet_ntoa(client_addr.sin_addr)+' '+tempFilePath)<<endl;
+				system((exe_path+' '+inet_ntoa(client_addr.sin_addr)+' '+tempFilePath).c_str());
+				ifstream exe_result("temp.txt",ios::binary);
+				string response;
+				char c;
+				while(exe_result.get(c))
 				{
-					send(client_socket,response.c_str(),response.size(),0);
-					response.clear();
+					response+=c;
+					if(response.size()>BUFFER_SIZE)
+					{
+						send(client_socket,response.c_str(),response.size(),0);
+						response.clear();
+					}
 				}
+				exe_result.close();
+				if(!response.empty())
+					send(client_socket,response.c_str(),response.size(),0);
+				closesocket(client_socket);
+				continue;
 			}
-			exe_result.close();
-			if(!response.empty())
-				send(client_socket,response.c_str(),response.size(),0);
-			closesocket(client_socket);
-			continue;
 		}
 		if(!flag)
 		{
@@ -369,6 +377,7 @@ int main()
 			continue;
 		}
 		//加载HTML源码 
+//		cout<<"[debug]now open:"<<fileName<<endl;
 		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"\r\nContent-Length: "+to_string(filesystem::file_size(fileName))+"\r\n\r\n"; 
 		ifstream fin(fileName,ios::binary);
 		char c;
