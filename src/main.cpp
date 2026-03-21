@@ -277,14 +277,16 @@ int main()
 			continue;
 		}
 		string childLabel;
+		string full_request;
 		if(IsTcpDataAvailable(client_socket,1000))
 		{
 			int ret=recv(client_socket,buf,BUFFER_SIZE,0);
-			int startPos=string::npos;
+			int startPos=-1;
 			if(ret>0)
 			{
 				buf[ret]=0;
-				printf("%s\n",buf);
+				printf("%s",buf);
+				full_request+=buf;
 				startPos=string(buf).find("GET");
 			}
 			if(startPos==string::npos)
@@ -294,7 +296,21 @@ int main()
 				closesocket(client_socket);
 				continue;
 			}
-			for(int i=startPos+4;i<strlen(buf)&&buf[i]!=' ';i++) childLabel+=buf[i];
+			while(IsTcpDataAvailable(client_socket,10))
+			{
+				memset(buf,0,sizeof(buf));
+				int ret=recv(client_socket,buf,BUFFER_SIZE,0);
+				if(ret>0)
+				{
+					buf[ret]=0;
+					printf("%s",buf);
+					full_request+=buf;
+				}
+				else
+					break;
+			}
+			for(int i=startPos+4;i<full_request.size()&&full_request[i]!=' ';i++) childLabel+=full_request[i];
+			printf("\n\n");
 		}
 		bool flag=0;
 		string fileName,type;
@@ -326,7 +342,7 @@ int main()
 			}
 			lists.close();
 		}
-		if(!flag&&strlen(buf)>0)
+		if(!flag&&!full_request.empty())
 		{
 			//继续查找（可执行文件处理列表）
 			ifstream exe_process("exe_process.txt");
@@ -344,7 +360,7 @@ int main()
 			{
 //				exe_path='\"'+exe_path+'\"';
 				ofstream fout("temp.txt");
-				fout<<buf;
+				fout<<full_request;
 				fout.close();
 				string tempFilePath=filesystem::absolute("temp.txt").string();
 				if(tempFilePath[0]!='\"') tempFilePath='\"'+tempFilePath+'\"';
