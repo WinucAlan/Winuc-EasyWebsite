@@ -1,13 +1,17 @@
 #include <bits/stdc++.h>
-#include <winsock2.h> 
+#include <winsock2.h>
+#include <ws2tcpip.h>  // ÂøÖÈ°ªÂä†ÔºåÁî®‰∫é IPv6
+
 #define PORT 8888
-#define  BUFFER_SIZE 4196
+#define BUFFER_SIZE 4196
 using namespace std;
-struct sockaddr_in client_addr;
+
+struct sockaddr_in6 client_addr;  // IPv6 Âú∞ÂùÄÁªìÊûÑ
 SOCKET server_socket;
 int client_addr_len;
-char buf[BUFFER_SIZE+100];
+char buf[BUFFER_SIZE + 100];
 SOCKET client_socket;
+
 const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
 	{"txt",    "text/plain; charset=utf-8"},
 	{"html",   "text/html; charset=utf-8"},
@@ -55,10 +59,10 @@ const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
 	{"ico",    "image/x-icon"},
 	{"tiff",   "image/tiff"},
 	{"tif",    "image/tiff"},
-	{"heic",   "image/heic"},                  // ∆ªπ˚HEICÕº∆¨
-	{"psd",    "image/vnd.adobe.photoshop"},   // PSDŒƒº˛
-	{"ai",     "application/postscript"},      // AI ∏¡øÕº
-	{"eps",    "application/postscript"},      // EPS ∏¡øÕº
+	{"heic",   "image/heic"},
+	{"psd",    "image/vnd.adobe.photoshop"},
+	{"ai",     "application/postscript"},
+	{"eps",    "application/postscript"},
 	{"mp3",    "audio/mpeg"},
 	{"wav",    "audio/wav"},
 	{"ogg",    "audio/ogg"},
@@ -66,8 +70,8 @@ const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
 	{"aac",    "audio/aac"},
 	{"m4a",    "audio/mp4"},
 	{"wma",    "audio/x-ms-wma"},
-	{"mid",    "audio/midi"},                  // MIDI“Ù∆µ
-	{"opus",   "audio/opus"},                  // OPUS“Ù∆µ
+	{"mid",    "audio/midi"},
+	{"opus",   "audio/opus"},
 	{"mp4",    "video/mp4"},
 	{"avi",    "video/x-msvideo"},
 	{"mov",    "video/quicktime"},
@@ -131,10 +135,10 @@ const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
 	{"stl",    "application/sla"},
 	{"step",   "application/step"},
 	{"iges",   "application/iges"},
-	{"gpg",    "application/pgp-encrypted"},   // GPGº”√‹Œƒº˛
-	{"p12",    "application/x-pkcs12"},        // PKCS12÷§ È
-	{"cer",    "application/x-x509-ca-cert"},  // ÷§ ÈŒƒº˛
-	{"asc",    "text/plain; charset=utf-8"},   // «©√˚Œƒº˛
+	{"gpg",    "application/pgp-encrypted"},
+	{"p12",    "application/x-pkcs12"},
+	{"cer",    "application/x-x509-ca-cert"},
+	{"asc",    "text/plain; charset=utf-8"},
 	{"torrent","application/x-bittorrent"},
 	{"log",    "text/plain; charset=utf-8"},
 	{"cert",   "application/x-x509-ca-cert"},
@@ -180,246 +184,279 @@ const std::unordered_map<std::string, std::string> EXT_TO_CONTENT_TYPE = {
 	{"frag",   "text/x-glsl; charset=utf-8"},
 	{"vert",   "text/x-glsl; charset=utf-8"},
 	{"comp",   "text/x-glsl; charset=utf-8"},
-	
 	{"default","application/octet-stream"}
 };
+
 int IsTcpDataAvailable(SOCKET s, int timeout_ms)
 {
 	fd_set read_fds;
 	struct timeval timeout;
-	// ≥ı ºªØfd_set£¨÷ªπÿ◊¢ƒø±ÍÃ◊Ω”◊÷
 	FD_ZERO(&read_fds);
 	FD_SET(s, &read_fds);
-	// …Ë÷√≥¨ ± ±º‰
+	
 	timeout.tv_sec = timeout_ms / 1000;
 	timeout.tv_usec = (timeout_ms % 1000) * 1000;
-	// µ˜”√select£¨÷ªºÏ≤È∂¡◊¥Ã¨
+	
 	int ret = select(0, &read_fds, NULL, NULL, &timeout);
 	if (ret == SOCKET_ERROR)
 	{
-		// ≥ˆ¥Ì£¨¥Ú”°¥ÌŒÛ¬Î
 		printf("select error: %d\n", WSAGetLastError());
 		return -1;
 	}
-	else if (ret > 0) // ∑µªÿ÷µ>0±Ì æ”–Ã◊Ω”◊÷æÕ–˜£¨ºÏ≤Èƒø±ÍÃ◊Ω”◊÷ «∑Ò‘⁄æÕ–˜ºØ∫œ÷–
-		if (FD_ISSET(s, &read_fds))
-			return 1; // ”– ˝æ›ø…∂¡
-	// ≥¨ ±£¨Œﬁ ˝æ›ø…∂¡
+	else if (ret > 0 && FD_ISSET(s, &read_fds))
+		return 1;
+	
 	return 0;
 }
+
 bool canReadFile(string s)
 {
 	ifstream fin(s);
-	if(fin.is_open())
+	if (fin.is_open())
 	{
 		fin.close();
 		return 1;
 	}
 	return 0;
 }
+
 string getFileExtension(string path)
 {
-	int pos=path.find_last_of('.');
-	if(pos==string::npos)
+	int pos = path.find_last_of('.');
+	if (pos == string::npos)
 		return "";
-	string res="";
-	for(int i=pos+1;i<path.size();i++)
-		res+=tolower(path[i]);
+	string res = "";
+	for (int i = pos + 1; i < path.size(); i++)
+		res += tolower(path[i]);
 	return res;
 }
+
 string getContentTypeByExtension(string filePath)
 {
-	string ext=getFileExtension(filePath);
-	auto it=EXT_TO_CONTENT_TYPE.find(ext);
-	if (it!=EXT_TO_CONTENT_TYPE.end())
+	string ext = getFileExtension(filePath);
+	auto it = EXT_TO_CONTENT_TYPE.find(ext);
+	if (it != EXT_TO_CONTENT_TYPE.end())
 		return it->second;
 	return EXT_TO_CONTENT_TYPE.at("default");
 }
+
+// Ëé∑ÂèñÂÆ¢Êà∑Á´Ø IPÔºàÂÖºÂÆπ IPv4/IPv6Ôºâ
+string GetClientIP()
+{
+	char ip_str[INET6_ADDRSTRLEN] = {0};
+	inet_ntop(AF_INET6, &client_addr.sin6_addr, ip_str, INET6_ADDRSTRLEN);
+	return string(ip_str);
+}
+
 int main()
 {
-	WORD winsock_version = MAKEWORD(2,2);
+	WORD winsock_version = MAKEWORD(2, 2);
 	WSADATA wsa_data;
 	if (WSAStartup(winsock_version, &wsa_data) != 0)
 	{
 		printf("Failed to init socket dll!\n");
 		return 1;
 	}
-	server_socket= socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+	
+	// ===================== IPv6 ÂèåÊ†à Socket =====================
+	server_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (server_socket == INVALID_SOCKET)
 	{
 		printf("Failed to create server socket!\n");
 		return 2;
 	}
-	struct sockaddr_in server_addr;
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(PORT);
-	server_addr.sin_addr.S_un.S_addr = INADDR_ANY;
-	if (bind(server_socket, (LPSOCKADDR)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
+	
+	// ÂÖ≥Èó≠‰ªÖ IPv6ÔºåËÆ© socket ÂêåÊó∂ÊîØÊåÅ IPv4 + IPv6
+	int no = 0;
+	if (setsockopt(server_socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) == SOCKET_ERROR)
+	{
+		printf("Failed to set IPV6_V6ONLY!\n");
+	}
+	
+	// ÁªëÂÆö IPv6 ‰ªªÊÑèÂú∞ÂùÄ
+	struct sockaddr_in6 server_addr = {0};
+	server_addr.sin6_family = AF_INET6;
+	server_addr.sin6_port = htons(PORT);
+	server_addr.sin6_addr = in6addr_any;
+	
+	if (bind(server_socket, (SOCKADDR*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
 	{
 		printf("Failed to bind port!\n");
 		return 3;
 	}
+	
 	if (listen(server_socket, 10))
 	{
 		printf("Failed to listen!\n");
 		return 4;
 	}
+	
 	client_addr_len = sizeof(client_addr);
-	printf("Wait for connecting...\n");
-	while(1)
+	printf("Wait for connecting... (IPv4/IPv6 supported)\n");
+	
+	while (1)
 	{
-		memset(buf,0,sizeof(buf));
+		memset(buf, 0, sizeof(buf));
 		client_socket = accept(server_socket, (SOCKADDR*)&client_addr, &client_addr_len);
-		printf("[info]connect to new client: IP=%s\n" , inet_ntoa(client_addr.sin_addr));
+		string client_ip = GetClientIP();
+		printf("[info] new client connected: IP=%s\n", client_ip.c_str());
+		
 		if (client_socket == INVALID_SOCKET)
 		{
 			printf("Failed to accept!\n");
 			continue;
 		}
+		
 		string childLabel;
 		string full_request;
 		string request_type;
-		if(IsTcpDataAvailable(client_socket,1000))
+		
+		if (IsTcpDataAvailable(client_socket, 1000))
 		{
-			int ret=recv(client_socket,buf,BUFFER_SIZE,0);
-			int startPos=-1;
-			if(ret>0)
+			int ret = recv(client_socket, buf, BUFFER_SIZE, 0);
+			int startPos = -1;
+			if (ret > 0)
 			{
-				buf[ret]=0;
-				full_request+=buf;
-				for(int i=0;i<full_request.size();i++)
+				buf[ret] = 0;
+				full_request += buf;
+				for (int i = 0; i < full_request.size(); i++)
 				{
-					if(full_request[i]==' ')
+					if (full_request[i] == ' ')
 					{
-						startPos=i+1;
+						startPos = i + 1;
 						break;
 					}
-					if(full_request[i]=='/')
+					if (full_request[i] == '/')
 						break;
-					request_type+=full_request[i];
+					request_type += full_request[i];
 				}
 			}
-			if(startPos==-1)
+			
+			if (startPos == -1)
 			{
 				printf("ERROR:Undefined request\n");
-				send(client_socket,"HTTP/1.1 404 Not Found",sizeof("HTTP/1.1 404 Not Found"),0);
+				send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", sizeof("HTTP/1.1 404 Not Found\r\n\r\n"), 0);
 				closesocket(client_socket);
 				continue;
 			}
-			while(IsTcpDataAvailable(client_socket,10))
+			
+			while (IsTcpDataAvailable(client_socket, 10))
 			{
-				memset(buf,0,sizeof(buf));
-				int ret=recv(client_socket,buf,BUFFER_SIZE,0);
-				if(ret>0)
+				memset(buf, 0, sizeof(buf));
+				int ret = recv(client_socket, buf, BUFFER_SIZE, 0);
+				if (ret > 0)
 				{
-					buf[ret]=0;
-					full_request+=buf;
+					buf[ret] = 0;
+					full_request += buf;
 				}
 				else
 					break;
 			}
-			for(int i=startPos;i<full_request.size()&&full_request[i]!=' ';i++) childLabel+=full_request[i];
-			printf("%s %s\n",request_type.c_str(),childLabel.c_str());
+			
+			for (int i = startPos; i < full_request.size() && full_request[i] != ' '; i++)
+				childLabel += full_request[i];
+			printf("%s %s\n", request_type.c_str(), childLabel.c_str());
 		}
-		bool flag=0;
-		string fileName,type;
-		//◊‘∂Ø≤È’“
-		if(canReadFile("webpage"+childLabel)&&(request_type=="GET"||request_type==""))
+		
+		bool flag = 0;
+		string fileName, type;
+		
+		if (canReadFile("webpage" + childLabel) && (request_type == "GET" || request_type == ""))
 		{
-			flag=1;
-			fileName="webpage"+childLabel;
-			type=getContentTypeByExtension(childLabel);
+			flag = 1;
+			fileName = "webpage" + childLabel;
+			type = getContentTypeByExtension(childLabel);
 		}
-		else if(canReadFile("webpage"+childLabel+".html")&&(request_type=="GET"||request_type==""))
+		else if (canReadFile("webpage" + childLabel + ".html") && (request_type == "GET" || request_type == ""))
 		{
-			flag=1;
-			fileName="webpage"+childLabel+".html";
-			type="text/html; charset=utf-8";
+			flag = 1;
+			fileName = "webpage" + childLabel + ".html";
+			type = "text/html; charset=utf-8";
 		}
-		else if(request_type=="GET"||request_type=="")
+		else if (request_type == "GET" || request_type == "")
 		{
-			//º”‘ÿÕ¯“≥¡–±Ì
 			ifstream lists("list.txt");
 			string child;
-			while(lists>>child>>type>>fileName)
+			while (lists >> child >> type >> fileName)
 			{
-				if(child==childLabel)
+				if (child == childLabel)
 				{
-					flag=1;
+					flag = 1;
 					break;
 				}
 			}
 			lists.close();
 		}
-		if(!flag&&!full_request.empty())
+		
+		if (!flag && !full_request.empty())
 		{
-			//ºÃ–¯≤È’“£®ø…÷¥––Œƒº˛¥¶¿Ì¡–±Ì£©
 			ifstream exe_process("exe_process.txt");
 			char type;
-			string child,exe_path,_request_type;
-			while(exe_process>>_request_type>>type>>child>>exe_path)
+			string child, exe_path, _request_type;
+			while (exe_process >> _request_type >> type >> child >> exe_path)
 			{
-				if(((type=='A'&&child==childLabel)||(type=='P'&&child==childLabel.substr(0,child.size())))&&_request_type==request_type)
+				if (((type == 'A' && child == childLabel) || (type == 'P' && child == childLabel.substr(0, child.size()))) && _request_type == request_type)
 				{
-					flag=1;
+					flag = 1;
 					break;
 				}
 			}
-			if(flag)
+			
+			if (flag)
 			{
-//				exe_path='\"'+exe_path+'\"';
 				ofstream fout("temp.txt");
-				fout<<full_request;
+				fout << full_request;
 				fout.close();
-				string tempFilePath=filesystem::absolute("temp.txt").string();
-				if(tempFilePath[0]!='\"') tempFilePath='\"'+tempFilePath+'\"';
-//				cout<<"[debug]command: "<<(exe_path+' '+inet_ntoa(client_addr.sin_addr)+' '+tempFilePath)<<endl;
-				system((exe_path+' '+inet_ntoa(client_addr.sin_addr)+' '+tempFilePath).c_str());
-				ifstream exe_result("temp.txt",ios::binary);
+				string tempFilePath = filesystem::absolute("temp.txt").string();
+				if (tempFilePath[0] != '\"') tempFilePath = '\"' + tempFilePath + '\"';
+				system((exe_path + ' ' + client_ip + ' ' + tempFilePath).c_str());
+				
+				ifstream exe_result("temp.txt", ios::binary);
 				string response;
 				char c;
-				while(exe_result.get(c))
+				while (exe_result.get(c))
 				{
-					response+=c;
-					if(response.size()>BUFFER_SIZE)
+					response += c;
+					if (response.size() > BUFFER_SIZE)
 					{
-						send(client_socket,response.c_str(),response.size(),0);
+						send(client_socket, response.c_str(), response.size(), 0);
 						response.clear();
 					}
 				}
 				exe_result.close();
-				if(!response.empty())
-					send(client_socket,response.c_str(),response.size(),0);
+				if (!response.empty())
+					send(client_socket, response.c_str(), response.size(), 0);
 				closesocket(client_socket);
 				continue;
 			}
 		}
-		if(!flag)
+		
+		if (!flag)
 		{
-			printf("ERROR:Undefined child:%s\n",childLabel.c_str());
-			send(client_socket,"HTTP/1.1 404 Not Found",sizeof("HTTP/1.1 404 Not Found"),0);
+			printf("ERROR:Undefined child:%s\n", childLabel.c_str());
+			send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", sizeof("HTTP/1.1 404 Not Found\r\n\r\n"), 0);
 			closesocket(client_socket);
 			continue;
 		}
-		//º”‘ÿHTML‘¥¬Î 
-//		cout<<"[debug]now open:"<<fileName<<endl;
-		string response="HTTP/1.1 200 OK\r\nContent-Type: "+type+"\r\nContent-Length: "+to_string(filesystem::file_size(fileName))+"\r\n\r\n"; 
-		ifstream fin(fileName,ios::binary);
+		
+		string response = "HTTP/1.1 200 OK\r\nContent-Type: " + type + "\r\nContent-Length: " + to_string(filesystem::file_size(fileName)) + "\r\n\r\n";
+		ifstream fin(fileName, ios::binary);
 		char c;
-		while(fin.get(c))
+		while (fin.get(c))
 		{
-			response+=c;
-			if(response.size()>BUFFER_SIZE)
+			response += c;
+			if (response.size() > BUFFER_SIZE)
 			{
-				send(client_socket,response.c_str(),response.size(),0);
+				send(client_socket, response.c_str(), response.size(), 0);
 				response.clear();
 			}
 		}
 		fin.close();
-		if(!response.empty())
-			send(client_socket,response.c_str(),response.size(),0);
+		if (!response.empty())
+			send(client_socket, response.c_str(), response.size(), 0);
 		closesocket(client_socket);
 	}
+	
 	closesocket(server_socket);
 	WSACleanup();
 	return 0;
