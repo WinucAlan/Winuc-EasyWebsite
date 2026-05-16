@@ -1,12 +1,12 @@
 #include <bits/stdc++.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>  // ±ØĞë¼Ó£¬ÓÃÓÚ IPv6
+#include <ws2tcpip.h>  // å¿…é¡»åŠ ï¼Œç”¨äº IPv6
 
 #define PORT 8888
 #define BUFFER_SIZE 4196
 using namespace std;
 
-struct sockaddr_in6 client_addr;  // IPv6 µØÖ·½á¹¹
+struct sockaddr_in6 client_addr;  // IPv6 åœ°å€ç»“æ„
 SOCKET server_socket;
 int client_addr_len;
 char buf[BUFFER_SIZE + 100];
@@ -240,7 +240,7 @@ string getContentTypeByExtension(string filePath)
 	return EXT_TO_CONTENT_TYPE.at("default");
 }
 
-// »ñÈ¡¿Í»§¶Ë IP£¨¼æÈİ IPv4/IPv6£©
+// è·å–å®¢æˆ·ç«¯ IPï¼ˆå…¼å®¹ IPv4/IPv6ï¼‰
 string GetClientIP()
 {
 	char ip_str[INET6_ADDRSTRLEN] = {0};
@@ -261,7 +261,7 @@ string getTime()
 	int hour=t->tm_hour;
 	int minute=t->tm_min;
 	int second=t->tm_sec;
-	string res=to_string(year)+'.'+to_string(month)+'.'+to_string(day)+". "+toString_2(hour)+':'+toString_2(minute)+':'+toString_2(second);
+	string res=to_string(year)+'.'+to_string(month)+'.'+to_string(day)+" "+toString_2(hour)+':'+toString_2(minute)+':'+toString_2(second);
 	return res;
 }
 int main()
@@ -274,7 +274,7 @@ int main()
 		return 1;
 	}
 	
-	// ===================== IPv6 Ë«Õ» Socket =====================
+	// ===================== IPv6 åŒæ ˆ Socket =====================
 	server_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (server_socket == INVALID_SOCKET)
 	{
@@ -282,12 +282,12 @@ int main()
 		return 2;
 	}
 	
-	// ¹Ø±Õ½ö IPv6£¬ÈÃ socket Í¬Ê±Ö§³Ö IPv4 + IPv6
+	// å…³é—­ä»… IPv6ï¼Œè®© socket åŒæ—¶æ”¯æŒ IPv4 + IPv6
 	int no = 0;
 	if (setsockopt(server_socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) == SOCKET_ERROR)
 		printf("%s[ERROR]Failed to set IPV6_V6ONLY!\n",getTime().c_str());
 	
-	// °ó¶¨ IPv6 ÈÎÒâµØÖ·
+	// ç»‘å®š IPv6 ä»»æ„åœ°å€
 	struct sockaddr_in6 server_addr = {0};
 	server_addr.sin6_family = AF_INET6;
 	server_addr.sin6_port = htons(PORT);
