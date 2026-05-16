@@ -1,12 +1,12 @@
 #include <bits/stdc++.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>  // å¿…é¡»åŠ ï¼Œç”¨äºŽ IPv6
+#include <ws2tcpip.h>  // ±ØÐë¼Ó£¬ÓÃÓÚ IPv6
 
 #define PORT 8888
 #define BUFFER_SIZE 4196
 using namespace std;
 
-struct sockaddr_in6 client_addr;  // IPv6 åœ°å€ç»“æž„
+struct sockaddr_in6 client_addr;  // IPv6 µØÖ·½á¹¹
 SOCKET server_socket;
 int client_addr_len;
 char buf[BUFFER_SIZE + 100];
@@ -240,40 +240,54 @@ string getContentTypeByExtension(string filePath)
 	return EXT_TO_CONTENT_TYPE.at("default");
 }
 
-// èŽ·å–å®¢æˆ·ç«¯ IPï¼ˆå…¼å®¹ IPv4/IPv6ï¼‰
+// »ñÈ¡¿Í»§¶Ë IP£¨¼æÈÝ IPv4/IPv6£©
 string GetClientIP()
 {
 	char ip_str[INET6_ADDRSTRLEN] = {0};
 	inet_ntop(AF_INET6, &client_addr.sin6_addr, ip_str, INET6_ADDRSTRLEN);
 	return string(ip_str);
 }
-
+string toString_2(int x)
+{
+	return string()+char(x/10+'0')+char(x%10+'0');
+}
+string getTime()
+{
+	time_t tmp=time(0);
+	tm *t=localtime(&tmp);
+	int year=t->tm_year+1900;
+	int month=t->tm_mon+1;
+	int day=t->tm_mday;
+	int hour=t->tm_hour;
+	int minute=t->tm_min;
+	int second=t->tm_sec;
+	string res=to_string(year)+'.'+to_string(month)+'.'+to_string(day)+". "+toString_2(hour)+':'+toString_2(minute)+':'+toString_2(second);
+	return res;
+}
 int main()
 {
 	WORD winsock_version = MAKEWORD(2, 2);
 	WSADATA wsa_data;
 	if (WSAStartup(winsock_version, &wsa_data) != 0)
 	{
-		printf("Failed to init socket dll!\n");
+		printf("%s[ERROR]Failed to init socket dll!\n",getTime().c_str());
 		return 1;
 	}
 	
-	// ===================== IPv6 åŒæ ˆ Socket =====================
+	// ===================== IPv6 Ë«Õ» Socket =====================
 	server_socket = socket(AF_INET6, SOCK_STREAM, IPPROTO_TCP);
 	if (server_socket == INVALID_SOCKET)
 	{
-		printf("Failed to create server socket!\n");
+		printf("%s[ERROR]Failed to create server socket!\n",getTime().c_str());
 		return 2;
 	}
 	
-	// å…³é—­ä»… IPv6ï¼Œè®© socket åŒæ—¶æ”¯æŒ IPv4 + IPv6
+	// ¹Ø±Õ½ö IPv6£¬ÈÃ socket Í¬Ê±Ö§³Ö IPv4 + IPv6
 	int no = 0;
 	if (setsockopt(server_socket, IPPROTO_IPV6, IPV6_V6ONLY, (char*)&no, sizeof(no)) == SOCKET_ERROR)
-	{
-		printf("Failed to set IPV6_V6ONLY!\n");
-	}
+		printf("%s[ERROR]Failed to set IPV6_V6ONLY!\n",getTime().c_str());
 	
-	// ç»‘å®š IPv6 ä»»æ„åœ°å€
+	// °ó¶¨ IPv6 ÈÎÒâµØÖ·
 	struct sockaddr_in6 server_addr = {0};
 	server_addr.sin6_family = AF_INET6;
 	server_addr.sin6_port = htons(PORT);
@@ -281,29 +295,29 @@ int main()
 	
 	if (bind(server_socket, (SOCKADDR*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR)
 	{
-		printf("Failed to bind port!\n");
+		printf("%s[ERROR]Failed to bind port!\n",getTime().c_str());
 		return 3;
 	}
 	
 	if (listen(server_socket, 10))
 	{
-		printf("Failed to listen!\n");
+		printf("%s[ERROR]Failed to listen!\n",getTime().c_str());
 		return 4;
 	}
 	
 	client_addr_len = sizeof(client_addr);
-	printf("Wait for connecting... (IPv4/IPv6 supported)\n");
+	printf("%s[INFO]Wait for connecting... (IPv4/IPv6 supported)\n",getTime().c_str());
 	
 	while (1)
 	{
 		memset(buf, 0, sizeof(buf));
 		client_socket = accept(server_socket, (SOCKADDR*)&client_addr, &client_addr_len);
 		string client_ip = GetClientIP();
-		printf("[info] new client connected: IP=%s\n", client_ip.c_str());
+		printf("%s[INFO] new client connected: IP=%s\n",getTime().c_str(), client_ip.c_str());
 		
 		if (client_socket == INVALID_SOCKET)
 		{
-			printf("Failed to accept!\n");
+			printf("%s[ERROR]Failed to accept!\n",getTime().c_str());
 			continue;
 		}
 		
@@ -334,7 +348,7 @@ int main()
 			
 			if (startPos == -1)
 			{
-				printf("ERROR:Undefined request\n");
+				printf("%s[ERROR]cannot get request\n",getTime().c_str());
 				send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", sizeof("HTTP/1.1 404 Not Found\r\n\r\n"), 0);
 				closesocket(client_socket);
 				continue;
@@ -342,20 +356,19 @@ int main()
 			
 			while (IsTcpDataAvailable(client_socket, 10))
 			{
-				memset(buf, 0, sizeof(buf));
-				int ret = recv(client_socket, buf, BUFFER_SIZE, 0);
-				if (ret > 0)
+				memset(buf,0,sizeof(buf));
+				int ret=recv(client_socket,buf,BUFFER_SIZE,0);
+				if(ret>0)
 				{
-					buf[ret] = 0;
-					full_request += buf;
+					buf[ret]=0;
+					full_request+=buf;
 				}
 				else
 					break;
 			}
-			
-			for (int i = startPos; i < full_request.size() && full_request[i] != ' '; i++)
-				childLabel += full_request[i];
-			printf("%s %s\n", request_type.c_str(), childLabel.c_str());
+			for (int i=startPos;i<full_request.size()&&full_request[i]!=' ';i++)
+				childLabel+=full_request[i];
+			printf("%s %s\n",request_type.c_str(),childLabel.c_str());
 		}
 		
 		bool flag = 0;
@@ -433,7 +446,7 @@ int main()
 		
 		if (!flag)
 		{
-			printf("ERROR:Undefined child:%s\n", childLabel.c_str());
+			printf("%s[ERROR]Undefined path:%s\n",getTime().c_str(), childLabel.c_str());
 			send(client_socket, "HTTP/1.1 404 Not Found\r\n\r\n", sizeof("HTTP/1.1 404 Not Found\r\n\r\n"), 0);
 			closesocket(client_socket);
 			continue;
